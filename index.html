@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>3D Character With Jumpscare</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: Arial; }
+    canvas { display: block; }
+
+    #gameOverMessage {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 32px;
+      color: red;
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+      z-index: 10;
+    }
+
+    #jumpscare {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('https://i.pinimg.com/originals/2f/2e/3e/2f2e3e4e59065ffde5e8f1e1f81a380b.gif') no-repeat center center;
+      background-size: cover;
+      display: none;
+      z-index: 1000;
+    }
+
+    .jumpscare-active {
+      display: block !important;
+      animation: jumpAnimation 1.5s ease-in-out forwards;
+    }
+
+    @keyframes jumpAnimation {
+      0%   { opacity: 0; transform: scale(1.5); }
+      50%  { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="gameOverMessage">You died noob!</div>
+  <div id="jumpscare"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Player (green sphere)
+    const playerGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+    const playerMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: false });
+    const player = new THREE.Mesh(playerGeometry, playerMaterial);
+    scene.add(player);
+
+    // Enemy (red rotating torus)
+    const enemyGeometry = new THREE.TorusGeometry(0.5, 0.2, 16, 100);
+    const enemyMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: false });
+    const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
+    enemy.position.set(3, 3, 0);
+    scene.add(enemy);
+
+    camera.position.z = 5;
+
+    let moveX = 0, moveY = 0;
+    let moveSpeed = 0.1;
+    let gameOver = false;
+    let shakeFrame = 0;
+
+    document.addEventListener('keydown', (e) => {
+      if (gameOver) return;
+      if (e.key === 'w' || e.key === 'ArrowUp') moveY = moveSpeed;
+      if (e.key === 's' || e.key === 'ArrowDown') moveY = -moveSpeed;
+      if (e.key === 'a' || e.key === 'ArrowLeft') moveX = -moveSpeed;
+      if (e.key === 'd' || e.key === 'ArrowRight') moveX = moveSpeed;
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (gameOver) return;
+      if (['w','s','ArrowUp','ArrowDown'].includes(e.key)) moveY = 0;
+      if (['a','d','ArrowLeft','ArrowRight'].includes(e.key)) moveX = 0;
+    });
+
+    function chasePlayer() {
+      const speed = 0.05;
+      const dir = new THREE.Vector3().subVectors(player.position, enemy.position).normalize();
+      enemy.position.add(dir.multiplyScalar(speed));
+    }
+
+    function checkCollision() {
+      const playerBox = new THREE.Box3().setFromObject(player);
+      const enemyBox = new THREE.Box3().setFromObject(enemy);
+
+      if (playerBox.intersectsBox(enemyBox)) {
+        if (!gameOver) triggerJumpscare();
+        return true;
+      }
+      return false;
+    }
+
+    function triggerJumpscare() {
+      document.getElementById('gameOverMessage').style.display = 'block';
+      const jumpscare = document.getElementById('jumpscare');
+      jumpscare.classList.add('jumpscare-active');
+      gameOver = true;
+      shakeFrame = 20;
+
+      setTimeout(() => {
+        jumpscare.classList.remove('jumpscare-active');
+      }, 1500);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (!gameOver) {
+        player.position.x += moveX;
+        player.position.y += moveY;
+
+        enemy.rotation.x += 0.05;
+        enemy.rotation.y += 0.05;
+
+        chasePlayer();
+        checkCollision();
+      }
+
+      if (shakeFrame > 0) {
+        camera.position.x = (Math.random() - 0.5) * 0.2;
+        camera.position.y = (Math.random() - 0.5) * 0.2;
+        shakeFrame--;
+      } else {
+        camera.position.x = 0;
+        camera.position.y = 0;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
